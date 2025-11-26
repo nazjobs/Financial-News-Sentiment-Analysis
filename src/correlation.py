@@ -22,14 +22,22 @@ def align_and_correlate(news_df, stock_df, ticker):
         return pd.DataFrame(), 0, 0
 
     # Normalize dates (remove time) for merging
-    ticker_news["date_only"] = pd.to_datetime(ticker_news["date"]).dt.normalize()
+    # We convert to UTC first to handle potential mixed timezones, then strip tz info
+    ticker_news["date_only"] = (
+        pd.to_datetime(ticker_news["date"], utc=True)
+        .dt.tz_localize(None)
+        .dt.normalize()
+    )
 
     # Aggregate sentiment (mean score per day)
     daily_sentiment = ticker_news.groupby("date_only")["sentiment_score"].mean()
 
     # Prepare stock data
     stock_returns = stock_df["Daily_Return"]
-    stock_returns.index = pd.to_datetime(stock_returns.index).normalize()
+    # Ensure stock index is also standard and tz-naive
+    stock_returns.index = (
+        pd.to_datetime(stock_returns.index, utc=True).tz_localize(None).normalize()
+    )
 
     # Merge the two series
     merged_df = pd.concat([daily_sentiment, stock_returns], axis=1).dropna()
